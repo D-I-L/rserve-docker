@@ -1,6 +1,7 @@
 rserve:
   restart: always
-  build: ./rserve/
+#  build: ./rserve/
+  image: tcarver/rserve-docker:latest
   entrypoint: /usr/share/rserve/entrypoint.sh
   volumes:
     - /usr/share/rserve/config
