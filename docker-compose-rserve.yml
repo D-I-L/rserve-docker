@@ -1,0 +1,13 @@
+rserve:
+  restart: always
+  build: ./rserve/
+  entrypoint: /usr/share/rserve/entrypoint.sh
+  volumes:
+    - /usr/share/rserve/config
+    - /usr/share/rserve/data
+    - ./rserve/entrypoint.sh:/usr/share/rserve/entrypoint.sh
+    - ./rserve/vcf2ld.R:/tmp/vcf2ld.R
+    - ./rserve/config:/usr/share/rserve/config/
+    - ./rserve/data:/usr/share/rserve/data/
+  ports:
+    - "6311:6311"
