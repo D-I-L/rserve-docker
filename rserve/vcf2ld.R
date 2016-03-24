@@ -80,6 +80,7 @@ ld_run <- function(dataset, chromosome, marker1, marker2=NULL,
     #Filter based on some quality scores
     snp_stats       <-col.summary(snp_data_subset)
     snp_data_subset <-snp_data_subset[, snp_stats$MAF >= 0.01 & snp_stats$Call.rate >= 0.90 & snp_stats$z.HWE^2 < 25]
+
     #Check that snp makes it through quality control
     if (marker1 %in% colnames(snp_data_subset)) {
       ld_data <- ld(snp_data_subset, snp_data_subset[,marker1], stats=c("D.prime", "R.squared"))
@@ -96,6 +97,24 @@ ld_run <- function(dataset, chromosome, marker1, marker2=NULL,
       msg <- ld_data_formatted[ ld_data_formatted$D.prime>=dprime, ]
       result_markers <- as.character(msg$marker2)
       if(maf) {
+        #print(snp_stats[result_markers,])
+        #print(sm$map[sm$map$ID == result_markers,])
+        
+        # 
+        # RAF: The "risk" allele (allele B) frequency. So if 
+        # RAF < 0.5 allele B is the minor allele otherwise A.
+        #for (i in 1:NROW(snp_stats[result_markers,])) {
+          #print(sm$map[sm$map$ID == result_markers,]$ALT[i])
+          #print(sm$map[sm$map$ID == result_markers,]$REF[i])
+          
+          #if(snp_stats[result_markers,]$RAF[i] < 0.5) {
+          #  msg$minor[i] <- sm$map[sm$map$ID == result_markers,]$ALT[i]
+          #  msg$major[i] <- sm$map[sm$map$ID == result_markers,]$REF[i]
+          #} else {
+          #  msg$minor[i] <- sm$map[sm$map$ID == result_markers,]$REF[i]
+          #  msg$major[i] <- sm$map[sm$map$ID == result_markers,]$ALT[i]
+          #}
+        #}
         msg$MAF <- c(round(snp_stats[result_markers,]$MAF, digits=7))
       }
      if(position) {
@@ -115,6 +134,70 @@ ld_run <- function(dataset, chromosome, marker1, marker2=NULL,
   }
 }
 
+
+get_pop <- function(dataset, chromosome, marker1, build_version=CURRENT_BUILD) {
+  # find if dataset is a super- or sub-population
+  super_pop<-as.character(POPS[dataset,])
+  sub_pop<-NA
+  if(is.na(super_pop)){
+    super_pop<-dataset # calculation over super-population
+  }else{
+    sub_pop<-dataset   # calculation over sub-population
+  }
+  sub_pops <- row.names(subset(POPS, tmp....1. == dataset))
+  sm <- try(eval(parse(text = super_pop))[[paste('chr',chromosome,sep="")]])
+
+  m1_pos = sm$map[sm$map$ID == marker1,]$POS
+  pos=sm$map[sm$map$ID==marker1,]$POS
+  
+  if(length(pos) == 0){
+    err <- paste("Marker ",marker1," was not found in this dataset",sep="")
+  } else {
+    snp_data_subset <-sm$gt[,marker1]
+    msg <- list()
+    msg[[ super_pop ]] <- pops(marker1, snp_data_subset, sm, NA)
+    for (sub_pop in sub_pops){ 
+      msg[[ sub_pop ]] <- pops(marker1, snp_data_subset, sm, sub_pop)
+    }
+  }
+
+  if(exists("err")) {
+    toJSON(list(error=err))
+  } else {
+    toJSON(msg)
+  }
+}
+
+pops<-function(marker1, snp_data_subset, sm, sub_pop){
+  # filter by sub-population if requested
+  if(!is.na(sub_pop)){
+    sub_pop_samples <- row.names(subset(SAMPLES, pop==sub_pop))
+    snp_data_subset<-snp_data_subset[sub_pop_samples,]
+  }
+  snp_stats <-col.summary(snp_data_subset)
+  msg <- {}
+  
+  #Check that snp makes it through quality control
+  if (marker1 %in% colnames(snp_data_subset)) {
+    #print(snp_stats[marker1,])
+    #print(sm$map[sm$map$ID == marker1,])
+
+    # 
+    # RAF: The "risk" allele (allele B) frequency. So if 
+    # RAF < 0.5 allele B is the minor allele otherwise A.
+    if(snp_stats[marker1,]$RAF < 0.5) {
+      msg$minor <- sm$map[sm$map$ID == marker1,]$ALT
+      msg$major <- sm$map[sm$map$ID == marker1,]$REF
+    } else {
+      msg$minor <- sm$map[sm$map$ID == marker1,]$REF
+      msg$major <- sm$map[sm$map$ID == marker1,]$ALT
+    }
+    msg$MAF <- c(round(snp_stats[marker1,]$MAF, digits=7))
+  } else {
+    msg <- paste("Marker ",marker1," did not pass QC",sep="")
+  }
+  msg
+}
 
 tabix_bin="/usr/local/bin/tabix"
 
